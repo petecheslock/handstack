@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Handstack - Digital Hand Raising</title>
+    <script>
+        // GitHub Pages SPA routing fix
+        // Redirect any 404 to the root and let React Router handle it
+        (function() {
+            var path = window.location.pathname;
+            var search = window.location.search;
+            var hash = window.location.hash;
+            
+            // Store the current path for the SPA to handle
+            sessionStorage.setItem('pathToRedirect', path + search + hash);
+            window.location.replace('/' + search + hash);
+        })();
+    </script>
+</head>
+<body>
+    <div style="text-align: center; padding: 50px; font-family: Arial, sans-serif;">
+        <h1>🙋‍♂️ Handstack</h1>
+        <p>Redirecting you to the right place...</p>
+        <p>If you're not redirected automatically, <a href="/">click here</a>.</p>
+    </div>
+</body>
+</html> 
