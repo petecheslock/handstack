@@ -43,6 +43,34 @@ export const roomExists = async (roomCode) => {
 };
 
 /**
+ * Check if a user exists in a room
+ * @param {string} roomCode - Room code to check
+ * @param {string} userId - User ID to check
+ * @returns {Promise<boolean>} Whether the user exists in the room
+ */
+export const userExistsInRoom = async (roomCode, userId) => {
+  const userRef = ref(database, `rooms/${roomCode}/users/${userId}`);
+  const snapshot = await get(userRef);
+  return snapshot.exists();
+};
+
+/**
+ * Restore a user to the database during session restoration
+ * @param {string} roomCode - Room code
+ * @param {string} userId - User ID
+ * @param {string} userName - User name
+ * @returns {Promise<void>}
+ */
+export const restoreUserToRoom = async (roomCode, userId, userName) => {
+  const userRef = ref(database, `rooms/${roomCode}/users/${userId}`);
+  await set(userRef, {
+    name: userName,
+    joinedAt: serverTimestamp(),
+    handRaised: false
+  });
+};
+
+/**
  * Join a room as a user
  * @param {string} roomCode - Room code to join
  * @param {string} userName - Name of the user

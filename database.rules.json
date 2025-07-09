@@ -7,14 +7,14 @@
         ".validate": "newData.val() == null || (newData.hasChildren(['adminName', 'createdAt']) && newData.child('adminName').isString() && newData.child('createdAt').val() != null)",
         "users": {
           "$userId": {
-            ".write": "!data.exists() || data.child('name').val() == newData.child('name').val()",
-            ".validate": "newData.hasChildren(['name', 'joinedAt']) && newData.child('name').isString() && newData.child('joinedAt').val() != null"
+            ".write": "!data.exists() || data.child('name').val() == newData.child('name').val() || newData.val() == null",
+            ".validate": "newData.val() == null || (newData.hasChildren(['name', 'joinedAt']) && newData.child('name').isString() && newData.child('joinedAt').val() != null)"
           }
         },
         "queue": {
           "$queueId": {
             ".write": true,
-            ".validate": "newData.hasChildren(['userId', 'raisedAt']) && newData.child('userId').isString() && newData.child('raisedAt').val() != null"
+            ".validate": "newData.val() == null || (newData.hasChildren(['userId', 'raisedAt']) && newData.child('userId').isString() && newData.child('raisedAt').val() != null)"
           }
         }
       }

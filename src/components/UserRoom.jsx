@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { listenToRoom, updateHandStatus } from '../services/firebase';
+import EndMeetingModal from './EndMeetingModal';
 
 const UserRoom = ({ userSession, onSessionEnd }) => {
   const [roomData, setRoomData] = useState(null);
@@ -8,6 +9,7 @@ const UserRoom = ({ userSession, onSessionEnd }) => {
   const [queuePosition, setQueuePosition] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showRoomEndedModal, setShowRoomEndedModal] = useState(false);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [countdown, setCountdown] = useState(30);
   const navigate = useNavigate();
   const { roomCode } = useParams(); // Get room code from URL parameter
@@ -57,14 +59,23 @@ const UserRoom = ({ userSession, onSessionEnd }) => {
     }
   };
 
-  const handleLeaveRoom = () => {
-    onSessionEnd();
+  const handleShowLeaveModal = () => {
+    setShowLeaveModal(true);
+  };
+
+  const handleConfirmLeave = async () => {
+    setShowLeaveModal(false);
+    await onSessionEnd();
     navigate('/');
   };
 
-  const handleReturnToMain = () => {
+  const handleCancelLeave = () => {
+    setShowLeaveModal(false);
+  };
+
+  const handleReturnToMain = async () => {
     setShowRoomEndedModal(false);
-    onSessionEnd();
+    await onSessionEnd();
     navigate('/');
   };
 
@@ -109,7 +120,7 @@ const UserRoom = ({ userSession, onSessionEnd }) => {
               <p className="text-gray-600">Room: {roomCode}</p>
             </div>
             <button
-              onClick={handleLeaveRoom}
+              onClick={handleShowLeaveModal}
               className="btn btn-secondary text-sm"
             >
               Leave Room
@@ -226,6 +237,14 @@ const UserRoom = ({ userSession, onSessionEnd }) => {
           </ul>
         </div>
       </div>
+
+      {/* Leave Meeting Confirmation Modal */}
+      <EndMeetingModal
+        isOpen={showLeaveModal}
+        onConfirm={handleConfirmLeave}
+        onCancel={handleCancelLeave}
+        userType={userSession?.userType}
+      />
 
       {/* Room Ended Modal */}
       {showRoomEndedModal && (

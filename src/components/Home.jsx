@@ -1,11 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import EndMeetingModal from './EndMeetingModal';
 
 const Home = ({ userSession, onSessionEnd }) => {
-  const handleClearSession = () => {
-    if (window.confirm('Are you sure you want to end your current session?')) {
-      onSessionEnd();
-    }
+  const [showEndSessionModal, setShowEndSessionModal] = useState(false);
+
+  const handleShowEndSessionModal = () => {
+    setShowEndSessionModal(true);
+  };
+
+  const handleConfirmEndSession = async () => {
+    setShowEndSessionModal(false);
+    await onSessionEnd();
+  };
+
+  const handleCancelEndSession = () => {
+    setShowEndSessionModal(false);
   };
 
   return (
@@ -71,14 +81,22 @@ const Home = ({ userSession, onSessionEnd }) => {
           {/* Clear Session Button */}
           {userSession && (
             <button
-              onClick={handleClearSession}
+              onClick={handleShowEndSessionModal}
               className="w-full btn btn-danger text-sm"
             >
-              End Current Session
+              {userSession.userType === 'admin' ? 'End Meeting' : 'Leave Meeting'}
             </button>
           )}
         </div>
       </div>
+
+      {/* End Session Confirmation Modal */}
+      <EndMeetingModal
+        isOpen={showEndSessionModal}
+        onConfirm={handleConfirmEndSession}
+        onCancel={handleCancelEndSession}
+        userType={userSession?.userType}
+      />
     </div>
   );
 };

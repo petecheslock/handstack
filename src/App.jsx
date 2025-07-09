@@ -5,7 +5,7 @@ import CreateRoom from './components/CreateRoom';
 import JoinRoom from './components/JoinRoom';
 import AdminRoom from './components/AdminRoom';
 import UserRoom from './components/UserRoom';
-import { leaveRoom, roomExists, deleteRoom } from './services/firebase';
+import { leaveRoom, roomExists, deleteRoom, userExistsInRoom, restoreUserToRoom } from './services/firebase';
 
 function App() {
   const [userSession, setUserSession] = useState(null);
@@ -24,13 +24,30 @@ function App() {
           // Validate that the room still exists
           const roomStillExists = await roomExists(session.roomCode);
           if (roomStillExists) {
+            // Handle session restoration based on user type
+            if (session.userType === 'user' && session.userId) {
+              // For regular users, check if they still exist in the database
+              const userExists = await userExistsInRoom(session.roomCode, session.userId);
+              if (!userExists) {
+                // Only restore to database if user is on their room page (refresh scenario)
+                const isOnRoomPage = location.pathname === `/room/${session.roomCode}`;
+                if (isOnRoomPage) {
+                  // User was removed from database during page refresh, restore them
+                  await restoreUserToRoom(session.roomCode, session.userId, session.userName);
+                  console.log(`User ${session.userName} restored to room ${session.roomCode}`);
+                }
+                // Always preserve session regardless of page (they can see it on home page)
+              }
+            }
+            // For admins, no database restoration needed (they don't exist in users collection)
+            // Session is preserved as long as room exists
+            
             setUserSession(session);
             
-            // Only redirect if user is on home page or invalid route
-            const isOnHomePage = location.pathname === '/';
+            // Only redirect from create/join pages (not home page)
             const isOnCreateJoinPage = location.pathname === '/create' || location.pathname === '/join';
             
-            if (isOnHomePage || isOnCreateJoinPage) {
+            if (isOnCreateJoinPage) {
               const targetPath = session.userType === 'admin' 
                 ? `/admin/${session.roomCode}` 
                 : `/room/${session.roomCode}`;
@@ -71,18 +88,17 @@ function App() {
     }
   }, [userSession]);
 
-  // Cleanup on app close/refresh
+  // Cleanup on app close/refresh (only for regular users)
   useEffect(() => {
     const handleBeforeUnload = async () => {
       if (userSession) {
         try {
-          if (userSession.userType === 'admin') {
-            // Admin closing - delete the entire room
-            await deleteRoom(userSession.roomCode);
-          } else if (userSession.userId) {
+          if (userSession.userType === 'user' && userSession.userId) {
             // Regular user closing - just remove them from the room
             await leaveRoom(userSession.roomCode, userSession.userId);
           }
+          // Note: Admin rooms are NOT deleted on page close/refresh
+          // They persist until explicitly ended via "End Meeting" button
         } catch (error) {
           console.error('Error during beforeunload cleanup:', error);
         }
@@ -113,6 +129,8 @@ function App() {
         // Continue with session cleanup even if database operations fail
       }
     }
+    // Clear localStorage immediately to prevent session restoration
+    localStorage.removeItem('handstack_session');
     setUserSession(null);
   };
 
