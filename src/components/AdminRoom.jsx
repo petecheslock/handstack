@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { listenToRoom, removeFromQueue } from '../services/firebase';
 
@@ -7,8 +7,82 @@ const AdminRoom = ({ userSession, onSessionEnd }) => {
   const [queue, setQueue] = useState([]);
   const [users, setUsers] = useState({});
   const [showEndMeetingModal, setShowEndMeetingModal] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [flashEnabled, setFlashEnabled] = useState(true);
+  const [isFlashing, setIsFlashing] = useState(false);
   const navigate = useNavigate();
-  const { roomCode } = useParams(); // Get room code from URL parameter
+  const { roomCode } = useParams();
+  const audioContextRef = useRef(null);
+  const previousQueueLengthRef = useRef(0);
+  const isInitialLoadRef = useRef(true);
+  const soundEnabledRef = useRef(soundEnabled);
+  const flashEnabledRef = useRef(flashEnabled);
+
+  // Initialize audio context
+  useEffect(() => {
+    const initAudio = async () => {
+      try {
+        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      } catch (error) {
+        console.error('Audio context not supported:', error);
+      }
+    };
+    initAudio();
+
+    return () => {
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+    };
+  }, []);
+
+  // Play notification sound
+  const playNotificationSound = async () => {
+    if (!audioContextRef.current) return;
+    
+    try {
+      // Resume audio context if suspended (required by many browsers)
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
+
+      const oscillator = audioContextRef.current.createOscillator();
+      const gainNode = audioContextRef.current.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContextRef.current.destination);
+      
+      // Create a pleasant notification sound
+      oscillator.frequency.setValueAtTime(800, audioContextRef.current.currentTime);
+      oscillator.frequency.setValueAtTime(600, audioContextRef.current.currentTime + 0.1);
+      oscillator.frequency.setValueAtTime(800, audioContextRef.current.currentTime + 0.2);
+      
+      gainNode.gain.setValueAtTime(0, audioContextRef.current.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.3, audioContextRef.current.currentTime + 0.01);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContextRef.current.currentTime + 0.3);
+      
+      oscillator.start(audioContextRef.current.currentTime);
+      oscillator.stop(audioContextRef.current.currentTime + 0.3);
+    } catch (error) {
+      console.error('Error playing notification sound:', error);
+    }
+  };
+
+  // Trigger screen flash
+  const triggerScreenFlash = () => {
+    setIsFlashing(true);
+    setTimeout(() => setIsFlashing(false), 300);
+  };
+
+  // Common notification handler - only triggers when users raise hands
+  const triggerNotifications = () => {
+    if (soundEnabledRef.current) {
+      playNotificationSound();
+    }
+    if (flashEnabledRef.current) {
+      triggerScreenFlash();
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = listenToRoom(roomCode, (snapshot) => {
@@ -25,9 +99,26 @@ const AdminRoom = ({ userSession, onSessionEnd }) => {
             ...queueItem,
             user: data.users ? data.users[queueItem.userId] : null
           }))
-          .filter(item => item.user) // Only include items with valid users
-          .sort((a, b) => a.raisedAt - b.raisedAt); // Sort by raise time
+          .filter(item => item.user)
+          .sort((a, b) => a.raisedAt - b.raisedAt);
         
+        // Only trigger notifications after initial load and when queue actually increases
+        if (!isInitialLoadRef.current && queueArray.length > previousQueueLengthRef.current) {
+          // Additional check: ensure we're not triggering on page refresh with existing queue
+          if (previousQueueLengthRef.current > 0 || queueArray.length === 1) {
+            // Only trigger notifications if at least one notification type is enabled
+            if (soundEnabledRef.current || flashEnabledRef.current) {
+              triggerNotifications();
+            }
+          }
+        }
+        
+        // After first load, set initial load to false and update previous queue length
+        if (isInitialLoadRef.current) {
+          isInitialLoadRef.current = false;
+        }
+        
+        previousQueueLengthRef.current = queueArray.length;
         setQueue(queueArray);
       }
     });
@@ -73,6 +164,23 @@ const AdminRoom = ({ userSession, onSessionEnd }) => {
     navigator.clipboard.writeText(roomCode);
   };
 
+  const toggleSound = () => {
+    setSoundEnabled(!soundEnabled);
+  };
+
+  const toggleFlash = () => {
+    setFlashEnabled(!flashEnabled);
+  };
+
+  // Update refs when state changes
+  useEffect(() => {
+    soundEnabledRef.current = soundEnabled;
+  }, [soundEnabled]);
+
+  useEffect(() => {
+    flashEnabledRef.current = flashEnabled;
+  }, [flashEnabled]);
+
   if (!roomData) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -88,7 +196,14 @@ const AdminRoom = ({ userSession, onSessionEnd }) => {
   const raisedHands = queue.length;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={`min-h-screen bg-gray-50 transition-colors duration-300 ${
+      isFlashing ? 'bg-yellow-200' : ''
+    }`}>
+      {/* Flash overlay */}
+      {isFlashing && (
+        <div className="fixed inset-0 bg-yellow-400 opacity-30 pointer-events-none z-50 animate-pulse"></div>
+      )}
+
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-4xl mx-auto px-4 py-4">
@@ -97,12 +212,70 @@ const AdminRoom = ({ userSession, onSessionEnd }) => {
               <h1 className="text-2xl font-bold text-gray-900">Admin Panel</h1>
               <p className="text-gray-600">Meeting hosted by {userSession.userName}</p>
             </div>
-            <button
-              onClick={handleEndSession}
-              className="btn btn-danger"
-            >
-              End Meeting
-            </button>
+            <div className="flex items-center gap-3">
+              {/* Sound Toggle */}
+              <button
+                onClick={toggleSound}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  soundEnabled 
+                    ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+                title={soundEnabled ? 'Disable sound notifications' : 'Enable sound notifications'}
+              >
+                {soundEnabled ? (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                    </svg>
+                    Sound
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zm9.464-9.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Sound
+                  </>
+                )}
+              </button>
+
+              {/* Flash Toggle */}
+              <button
+                onClick={toggleFlash}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  flashEnabled 
+                    ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+                title={flashEnabled ? 'Disable screen flash notifications' : 'Enable screen flash notifications'}
+              >
+                {flashEnabled ? (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Flash
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Flash
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={handleEndSession}
+                className="btn btn-danger"
+              >
+                End Meeting
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -112,12 +285,28 @@ const AdminRoom = ({ userSession, onSessionEnd }) => {
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-gray-900">Room Information</h2>
-            <button
-              onClick={copyRoomCode}
-              className="btn btn-secondary text-sm"
-            >
-              Copy Room Code
-            </button>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 text-sm text-gray-600">
+                <div className="flex items-center gap-1">
+                  <span>Sound:</span>
+                  <span className={`font-medium ${soundEnabled ? 'text-green-600' : 'text-gray-500'}`}>
+                    {soundEnabled ? 'ON' : 'OFF'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span>Flash:</span>
+                  <span className={`font-medium ${flashEnabled ? 'text-yellow-600' : 'text-gray-500'}`}>
+                    {flashEnabled ? 'ON' : 'OFF'}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={copyRoomCode}
+                className="btn btn-secondary text-sm"
+              >
+                Copy Room Code
+              </button>
+            </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -147,10 +336,34 @@ const AdminRoom = ({ userSession, onSessionEnd }) => {
         {/* Queue */}
         <div className="bg-white rounded-lg shadow-sm">
           <div className="p-6 border-b">
-            <h2 className="text-xl font-semibold text-gray-900">Speaking Queue</h2>
-            <p className="text-gray-600 mt-1">
-              {queue.length === 0 ? 'No one in queue' : `${queue.length} person${queue.length > 1 ? 's' : ''} waiting to speak`}
-            </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Speaking Queue</h2>
+                <p className="text-gray-600 mt-1">
+                  {queue.length === 0 ? 'No one in queue' : `${queue.length} person${queue.length > 1 ? 's' : ''} waiting to speak`}
+                </p>
+              </div>
+              {(soundEnabled || flashEnabled) && (
+                <div className="flex items-center gap-2">
+                  {soundEnabled && (
+                    <div className="flex items-center text-sm text-green-600 bg-green-50 px-3 py-1 rounded-full">
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                      </svg>
+                      Sound
+                    </div>
+                  )}
+                  {flashEnabled && (
+                    <div className="flex items-center text-sm text-yellow-600 bg-yellow-50 px-3 py-1 rounded-full">
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      Flash
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           
           <div className="divide-y">
@@ -158,7 +371,12 @@ const AdminRoom = ({ userSession, onSessionEnd }) => {
               <div className="p-8 text-center text-gray-500">
                 <div className="text-4xl mb-4">🤐</div>
                 <p>No raised hands yet</p>
-                <p className="text-sm mt-2">Participants will appear here when they raise their hands</p>
+                <p className="text-sm mt-2">
+                  {soundEnabled || flashEnabled 
+                    ? `You'll be notified when participants raise their hands${soundEnabled ? ' with sound' : ''}${soundEnabled && flashEnabled ? ' and' : ''}${flashEnabled ? ' screen flash' : ''}`
+                    : "Participants will appear here when they raise their hands"
+                  }
+                </p>
               </div>
             ) : (
               queue.map((queueItem, index) => (
