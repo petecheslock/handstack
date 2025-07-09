@@ -11,7 +11,7 @@ Handstack is a mobile-friendly web application that brings the convenience of di
 - **Simple room system** - 4-character room codes (new rooms use unambiguous characters, but can join any alphanumeric code)
 - **Admin controls** - Meeting hosts can manage the queue
 - **Session persistence** - Automatically restores your session after page refresh
-- **Zero-cost hosting** - Runs on GitHub Pages for free
+- **Zero-cost hosting** - Runs on Firebase for free
 - **No registration required** - Just enter your name and start
 
 ## 📁 Project Structure
@@ -31,8 +31,8 @@ handstack/
 │   ├── firebase/            # Firebase config
 │   │   └── config.js        # Firebase setup
 │   └── App.jsx              # Main app component
-├── .github/workflows/       # GitHub Actions
-│   └── deploy.yml           # Auto-deployment
+├── database.rules.json      # Database security rules
+├── firebase.json            # Firebase configuration
 └── README.md               # Full documentation
 ```
 
@@ -51,7 +51,13 @@ cd handstack
 npm install
 ```
 
-### 3. Firebase Configuration
+### 3. Install Firebase CLI
+
+```bash
+npm install -g firebase-tools
+```
+
+### 4. Firebase Configuration
 
 1. Go to [Firebase Console](https://console.firebase.google.com/)
 2. Create a new project (or use an existing one)
@@ -67,28 +73,15 @@ npm install
    - Click **Create Database**
    - Choose **Start in test mode**
    - Select your preferred location
-5. **Set database rules** (in Realtime Database → Rules tab):
-   ```json
-   {
-     "rules": {
-       "rooms": {
-         "$roomCode": {
-           ".read": true,
-           ".write": true
-         }
-       }
-     }
-   }
-   ```
-6. **Get your Firebase config** from the web app you created:
+5. **Get your Firebase config** from the web app you created:
    - Go to Project Settings → General tab
    - Scroll to "Your apps" and click on your web app
    - Copy the config object values
-7. **Create a `.env` file** in the root directory (copy from `env.example`):
+6. **Create a `.env` file** in the root directory (copy from `env.example`):
    ```bash
    cp env.example .env
    ```
-8. **Fill in your Firebase configuration** in `.env`:
+7. **Fill in your Firebase configuration** in `.env`:
    ```bash
    VITE_FIREBASE_API_KEY=AIzaSyC...  # From firebaseConfig.apiKey
    VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
@@ -101,21 +94,21 @@ npm install
 
    **⚠️ Important**: The `.env` file is automatically ignored by Git for security. Never commit your Firebase credentials to the repository.
 
-### 4. Update GitHub Pages Configuration
+### 5. Initialize Firebase
 
-1. Update `package.json` homepage field to match your GitHub username:
-   ```json
-   "homepage": "https://yourgithubuser.github.io"
-   ```
+```bash
+firebase login
+firebase init
+```
 
-2. In your GitHub repository settings:
-   - Go to **Settings** → **Pages**
-   - Set **Source** to "Deploy from a branch"
-   - Set **Branch** to "main" and **Folder** to "/ (root)"
-   
-   **Note**: This configuration serves from your main GitHub Pages domain (`petecheslock.github.io`). If you want to serve from a subdirectory like `/handstack`, you can create a repository named `handstack` and it will be available at `petecheslock.github.io/handstack`.
+During initialization:
+- Select **Hosting** and **Realtime Database**
+- Choose **Use an existing project** and select your Firebase project
+- Set `dist` as your public directory
+- Configure as a single-page app (Yes)
+- Don't overwrite `dist/index.html` if it exists
 
-### 5. Test Locally
+### 6. Test Locally
 
 ```bash
 npm run dev
@@ -129,36 +122,25 @@ Visit `http://localhost:5173` to test the application. You should see the Handst
 3. Open a new browser tab/window and join the room with the code
 4. Test raising/lowering hands and queue management
 
-## 🚀 Deployment to GitHub Pages
+## 🚀 Deployment to Firebase
 
-### GitHub Secrets Configuration
+### Database Rules
 
-Before deploying, you need to add your Firebase configuration as GitHub Secrets:
+The database security rules are stored in `database.rules.json` and will be automatically deployed with your project. The rules are configured to allow read/write access to room data.
 
-1. Go to your GitHub repository Settings > Secrets and variables > Actions
-2. Add the following secrets with your Firebase config values:
-   - `VITE_FIREBASE_API_KEY`
-   - `VITE_FIREBASE_AUTH_DOMAIN`
-   - `VITE_FIREBASE_DATABASE_URL`
-   - `VITE_FIREBASE_PROJECT_ID`
-   - `VITE_FIREBASE_STORAGE_BUCKET`
-   - `VITE_FIREBASE_MESSAGING_SENDER_ID`
-   - `VITE_FIREBASE_APP_ID`
-
-### Option 1: Automatic Deployment (Recommended)
-
-1. Push your code to GitHub
-2. Go to your repository Settings > Pages
-3. Choose "GitHub Actions" as the source
-4. The workflow in `.github/workflows/deploy.yml` will automatically deploy on push to main
-5. Your app will be available at `https://petecheslock.github.io`
-
-### Option 2: Manual Deployment
+### Deploy to Firebase
 
 ```bash
-npm run build
 npm run deploy
 ```
+
+This command will:
+1. Build the application
+2. Deploy to Firebase Hosting
+3. Update database rules
+4. Provide you with a live URL
+
+Your app will be available at `https://your-project-id.web.app`
 
 ## 📱 How to Use
 
@@ -183,7 +165,7 @@ npm run deploy
 - **Frontend**: React 18 + Vite
 - **Styling**: Tailwind CSS
 - **Database**: Firebase Realtime Database
-- **Hosting**: GitHub Pages
+- **Hosting**: Firebase Hosting
 - **Routing**: React Router
 
 ## 📈 Scaling Considerations
@@ -216,14 +198,15 @@ MIT License - feel free to use this for your meetings!
    - Ensure database rules allow read/write access to `rooms`
 
 2. **Deployment issues**: 
-   - Verify all GitHub Secrets are added to your repository
-   - Check that your GitHub Pages settings use "GitHub Actions" as source
+   - Verify Firebase CLI is installed: `firebase --version`
+   - Check that you're logged in: `firebase login`
+   - Ensure your project is initialized: `firebase init`
 
 3. **Room not found**: Ensure the room code is correct (4 alphanumeric characters).
 
 4. **Environment variable errors**: 
    - Local development: Check your `.env` file
-   - Deployment: Check your GitHub repository secrets
+   - Deployment: Firebase will use your project configuration
 
 **Need Help?** Create an issue on GitHub if you encounter problems or have suggestions for improvements.
 
@@ -231,7 +214,7 @@ MIT License - feel free to use this for your meetings!
 
 ## 🎉 Ready to Use!
 
-Once you complete the Firebase setup, your Handstack will be ready to host on GitHub Pages at zero cost. The application will handle multiple concurrent rooms and real-time updates seamlessly.
+Once you complete the Firebase setup, your Handstack will be ready to host on Firebase at zero cost. The application will handle multiple concurrent rooms and real-time updates seamlessly.
 
 **Perfect for**: Classrooms, conferences, team meetings, workshops, and any event where you need organized hand raising!
 
