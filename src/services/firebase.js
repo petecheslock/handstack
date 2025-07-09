@@ -62,11 +62,23 @@ export const userExistsInRoom = async (roomCode, userId) => {
  * @returns {Promise<void>}
  */
 export const restoreUserToRoom = async (roomCode, userId, userName) => {
+  // Check if user is currently in the queue to preserve their hand state
+  const queueRef = ref(database, `rooms/${roomCode}/queue`);
+  const queueSnapshot = await get(queueRef);
+  let handRaised = false;
+  
+  if (queueSnapshot.exists()) {
+    const queue = queueSnapshot.val();
+    // Check if this user is in the queue
+    const userInQueue = Object.values(queue).some(queueItem => queueItem.userId === userId);
+    handRaised = userInQueue;
+  }
+  
   const userRef = ref(database, `rooms/${roomCode}/users/${userId}`);
   await set(userRef, {
     name: userName,
     joinedAt: serverTimestamp(),
-    handRaised: false
+    handRaised: handRaised
   });
 };
 
