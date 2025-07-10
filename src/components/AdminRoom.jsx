@@ -337,33 +337,11 @@ const AdminRoom = ({ userSession, onSessionEnd }) => {
         {/* Queue */}
         <div className="bg-white rounded-lg shadow-sm">
           <div className="p-6 border-b">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900">Speaking Queue</h2>
-                <p className="text-gray-600 mt-1">
-                  {queue.length === 0 ? 'No one in queue' : `${queue.length} person${queue.length > 1 ? 's' : ''} waiting to speak`}
-                </p>
-              </div>
-              {(soundEnabled || flashEnabled) && (
-                <div className="flex items-center gap-2">
-                  {soundEnabled && (
-                    <div className="flex items-center text-sm text-green-600 bg-green-50 px-3 py-1 rounded-full">
-                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                      </svg>
-                      Sound
-                    </div>
-                  )}
-                  {flashEnabled && (
-                    <div className="flex items-center text-sm text-yellow-600 bg-yellow-50 px-3 py-1 rounded-full">
-                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                      Flash
-                    </div>
-                  )}
-                </div>
-              )}
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">Speaking Queue</h2>
+              <p className="text-gray-600 mt-1">
+                {queue.length === 0 ? 'No one in queue' : `${queue.length} person${queue.length > 1 ? 's' : ''} waiting to speak`}
+              </p>
             </div>
           </div>
           
