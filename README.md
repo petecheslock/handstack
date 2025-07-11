@@ -14,6 +14,21 @@ Handstack is a mobile-friendly web application that brings the convenience of di
 - **Zero-cost hosting** - Runs on Firebase for free
 - **No registration required** - Just enter your name and start
 
+## Screenshots
+
+### Admin Panel
+<img height="600" alt="Admin Panel" src="https://github.com/user-attachments/assets/b303292c-6c4e-4419-953a-845de26883b0" />
+
+### User Page
+<img height="600" alt="User Page" src="https://github.com/user-attachments/assets/677e4cfc-0106-4e7c-b5d2-c6b7207359ae" />
+
+### User Raising Hand
+<img height="600" alt="User Raises Hand" src="https://github.com/user-attachments/assets/8502d427-cf85-4857-8957-9eb420958b49" />
+
+### Admin Panel with Users Hands Raised
+<img height="600" alt="Admin Panel with Users Hands Raised" src="https://github.com/user-attachments/assets/9cb73b35-44b2-4413-b600-034867d006ea" />
+
+
 ## 📁 Project Structure
 ```
 handstack/
